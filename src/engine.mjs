@@ -24,3 +24,18 @@ export function advance(clock,now){const dt=Math.max(0,now-clock.last);if(clock.
 export function visibility(clock,hidden,now){advance(clock,now);if(clock.observing&&clock.status==='running'&&hidden&&!clock.hidden)clock.switches++;clock.hidden=hidden;}
 export function pause(clock,now){advance(clock,now);if(clock.status==='running'){clock.status='paused';clock.pauses++;}}
 export function resume(clock,now){clock.last=now;clock.status='running';}
+
+// Reviews are explicit user estimates. Timer duration never implies progress.
+export function reviewTask(state, taskId, outcome, remaining) {
+ validate(state);
+ const next=structuredClone(state);
+ const task=next.tasks.find(t=>t.id===taskId);
+ if(!task)throw Error('This task no longer exists. Review your task list instead.');
+ if(!['finished','progress','more-time'].includes(outcome))throw Error('Choose a review outcome.');
+ if(outcome==='finished')task.done=true;
+ else {
+  if(!Number.isInteger(remaining)||remaining<5||remaining>240)throw Error('Remaining work must be 5–240 whole minutes, or choose Finished.');
+  task.minutes=remaining;task.done=false;
+ }
+ return {state:next,plan:plan(next)};
+}

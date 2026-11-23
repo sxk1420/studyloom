@@ -22,3 +22,21 @@ test('planning preference changes order for a real urgency-confidence tradeoff',
  state.tasks[1].pinned=true;
  assert.equal(plan({...state,mode:'deadlines'}).ranked[0].id,2);
 });
+
+test('review previews progress without mutating the current plan',async()=>{
+ const {reviewTask}=await import('../src/engine.mjs');const s=defaults();const before=structuredClone(s);
+ const preview=reviewTask(s,1,'progress',10);
+ assert.deepEqual(s,before);assert.equal(preview.state.tasks[0].minutes,10);
+ assert.equal(preview.plan.blocks[0].minutes,10);
+});
+test('finished review removes task from scheduling but retains it for reopening',async()=>{
+ const {reviewTask}=await import('../src/engine.mjs');const p=reviewTask(defaults(),1,'finished');
+ assert.equal(p.state.tasks[0].done,true);assert.equal(p.state.tasks[0].minutes,30);
+ assert.ok(p.plan.ranked.every(t=>t.id!==1));
+});
+test('need-more-time review supports increased estimates and rejects invalid reviews',async()=>{
+ const {reviewTask}=await import('../src/engine.mjs');const s=defaults();
+ assert.equal(reviewTask(s,1,'more-time',60).state.tasks[0].minutes,60);
+ for(const n of [0,4,241,5.5,NaN])assert.throws(()=>reviewTask(s,1,'progress',n));
+ assert.throws(()=>reviewTask(s,999,'finished'));assert.throws(()=>reviewTask(s,1,'unknown',10));
+});
