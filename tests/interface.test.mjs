@@ -7,6 +7,8 @@ import {test, beforeEach, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {JSDOM, VirtualConsole} from 'jsdom';
+import {STORAGE_KEY,encodePlan} from '../src/storage.mjs';
+import {defaults} from '../src/engine.mjs';
 
 const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
 let dom, $, now, interval, errors, saved, sequence=0;
@@ -14,10 +16,15 @@ const globalNames=['document','FormData','performance','setInterval'];
 
 beforeEach(async()=>{
  saved=Object.fromEntries(globalNames.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+ await mount();
+});
+async function mount(seed=null){
+ if(dom)dom.window.close();
  now=0;errors=[];
  const console=new VirtualConsole();console.on('jsdomError',error=>errors.push(error));
  dom=new JSDOM(html,{url:'http://localhost:5173',pretendToBeVisual:true,virtualConsole:console});
  const w=dom.window;
+ if(seed!==null)w.localStorage.setItem(STORAGE_KEY,seed);
  // Deliberate test shims: verify state transitions, not native modal behaviour.
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;};
@@ -29,7 +36,7 @@ beforeEach(async()=>{
  $=selector=>w.document.querySelector(selector);
  // Each test gets a fresh module instance and independent application state.
  await import(new URL(`../src/app.mjs?test=${++sequence}`,import.meta.url));
-});
+}
 afterEach(()=>{
  dom.window.close();
  for(const name of globalNames){if(saved[name])Object.defineProperty(globalThis,name,saved[name]);else delete globalThis[name];}
@@ -112,4 +119,37 @@ test('simulated example cannot modify task progress through live review',()=>{
 });
 test('forget removes evidence, decisions, review access and undo',()=>{
  finish();activate('#clear');assert.equal($('#review-block').hidden,true);assert.equal($('#undo').disabled,true);assert.match($('#observations').textContent,/No observations/);assert.equal($('#suggestion').textContent,'');
+});
+
+
+test('saving is opt-in and stores only tasks and planning settings',()=>{
+ assert.equal(dom.window.localStorage.getItem(STORAGE_KEY),null);activate('#sim-example');activate('#accept');activate('#save-plan');
+ const saved=JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY));assert.equal(saved.plan.cap,15);assert.equal(saved.latestObservation,undefined);assert.equal(saved.decision,undefined);assert.match($('#save-status').textContent,/matches/);
+});
+test('saved copy survives a new page and requires explicit restore',async()=>{
+ edit(1,{title:'My saved task'});activate('#save-plan');const copy=dom.window.localStorage.getItem(STORAGE_KEY);await mount(copy);
+ assert.match(task(1).textContent,/Revise recursion/);assert.equal($('#restore-plan').disabled,false);activate('#restore-plan');assert.match(task(1).textContent,/My saved task/);
+});
+test('later edits do not autosave and restore supports undo',()=>{
+ activate('#save-plan');edit(1,{title:'Unsaved edit'});assert.match($('#save-status').textContent,/differs/);assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)).plan.tasks[0].title,'Revise recursion');
+ activate('#restore-plan');assert.match(task(1).textContent,/Revise recursion/);activate('#undo');assert.match(task(1).textContent,/Unsaved edit/);
+});
+test('deleting saved data leaves current tasks but removes it across reloads',async()=>{
+ edit(1,{title:'Keep current task'});activate('#save-plan');activate('#delete-plan');assert.match(task(1).textContent,/Keep current task/);assert.equal(dom.window.localStorage.getItem(STORAGE_KEY),null);
+ await mount();assert.equal($('#restore-plan').disabled,true);assert.match($('#save-status').textContent,/Not saved/);
+});
+test('corrupt saved data is not restored and can be deleted',async()=>{
+ await mount('{broken');assert.match($('#save-status').textContent,/unreadable/);assert.equal($('#restore-plan').disabled,true);assert.match(task(1).textContent,/Revise recursion/);activate('#delete-plan');assert.equal(dom.window.localStorage.getItem(STORAGE_KEY),null);
+});
+test('storage write failure is reported without losing the current plan',()=>{
+ dom.window.Storage.prototype.setItem=function(){throw Error('Quota exceeded');};activate('#save-plan');assert.match($('#save-status').textContent,/Saving failed/);assert.match(task(1).textContent,/Revise recursion/);
+});
+test('restoring is disabled during a live block and allowed after finish',()=>{
+ activate('#save-plan');activate('#start');assert.equal($('#restore-plan').disabled,true);activate('#finish');assert.equal($('#restore-plan').disabled,false);
+});
+test('forget observations does not delete explicitly saved tasks',()=>{
+ activate('#save-plan');activate('#sim-example');activate('#clear');assert.ok(dom.window.localStorage.getItem(STORAGE_KEY));assert.equal($('#restore-plan').disabled,false);
+});
+test('other-tab deletion updates saved status without changing current tasks',()=>{
+ activate('#save-plan');dom.window.localStorage.removeItem(STORAGE_KEY);dom.window.dispatchEvent(new dom.window.StorageEvent('storage',{key:STORAGE_KEY}));assert.equal($('#restore-plan').disabled,true);assert.match(task(1).textContent,/Revise recursion/);
 });

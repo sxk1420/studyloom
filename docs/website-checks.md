@@ -1,6 +1,6 @@
 # Website acceptance checks
 
-Status: the repository now contains 16 engine tests and 19 simulated-DOM interface tests; all 35 passed on 23 November 2026. Earlier server checks returned HTTP 200. Real-browser visual and native accessibility checks remain pending. Do not present these as participant results.
+Status: all 49 tests (16 engine, 28 simulated-DOM interface, 5 storage) passed on 23 November 2026. Real-browser visual and native accessibility checks remain pending. These are not participant results.
 
 ## 1. Normal planning
 Load “A balanced hour”. Expect 50 study minutes, 5 break minutes, 5 unused minutes and 45 estimated minutes remaining. Expand the first explanation. Put database notes first: the first block should change despite its lower score. Undo restores the prior order.
@@ -52,3 +52,11 @@ The interface suite reads the actual index.html and imports a fresh application 
 The harness provides controlled time, synthetic visibility events, and minimal dialog/scroll shims. It restores globals and closes each document after a test, and fails on unhandled interface errors. “Live observation” in a test means the application's live code path received synthetic events; it does not mean a real person was observed.
 
 These tests establish repeatable interface state transitions. They do not establish visual correctness, native keyboard/focus trapping, mobile layout, browser throttling behaviour, screen-reader usability or improved learning. The manual scenarios above remain the real-browser checklist. Earlier notes about temporary scripts describe historical checks; the committed suite is now the reproducible source of evidence.
+
+## Optional browser saving — 23 November 2026
+
+Automated checks verify explicit saving, a new simulated page restoring the saved copy, no autosaving of later edits, restore/undo, deletion, corrupt-data handling, failed writes, active-timer protection, separation from Forget observations, and status updates after another tab deletes the copy. Storage tests verify field selection and validation.
+
+Manual browser check: edit a task, Save plan, refresh and select Restore. Edit again and verify the unsaved status. Restore and Undo. Delete the saved copy, refresh and confirm Restore is disabled. Verify that timer observations never return. Check restoring on another day reminds the student to review relative deadlines. Different browser profiles and site addresses have separate storage; private browsing may discard it.
+
+Use `npm run test:storage` for the five pure storage tests. `npm test` includes all three suites. These tests do not replace a real-browser local-storage check.

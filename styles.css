@@ -16,3 +16,7 @@ select{appearance:none;padding-right:30px;background-image:url("data:image/svg+x
 
 [hidden]{display:none!important}
 #review-error{color:#9b341d}
+
+.saved-plan{margin-top:22px;padding:20px 24px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.saved-plan h2{font-size:1.125rem}.saved-plan p{margin:8px 0}#save-status{font-size:.875rem;font-weight:600}
+@media print{.saved-plan{display:none}}

@@ -1,7 +1,9 @@
+import {STORAGE_KEY,encodePlan,decodePlan,cleanPlan} from './storage.mjs';
 import {defaults,plan,reviewTask,infer,createClock,advance,visibility,pause,resume} from './engine.mjs';
 const $=s=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state=defaults(),previous=null,editing=null,clock=null,observation=null,decision=null,activeTask=null,result;
 let reviewTarget=null,reviewDraft=null,reviewBase=null;
+let savedSnapshot=null,savedRawExists=false,storageError='';
 const say=t=>$('#status').textContent=t;
 function checkpoint(){previous={state:structuredClone(state),decision};$('#undo').disabled=false;}
 function active(){return clock&&['running','paused'].includes(clock.status);}
@@ -19,7 +21,7 @@ function render(){
  let number=0;
  $('#plan').innerHTML=`<div class="metrics"><div><strong>${result.study} min</strong><span>PLANNED STUDY</span></div><div><strong>${result.breaks} min</strong><span>BREAKS</span></div><div><strong>${result.unused} min</strong><span>UNALLOCATED</span></div></div>${result.remaining?`<div class="notice"><strong>${result.remaining} minutes of estimated work remain.</strong><br>This is a starting session, not a promise to finish everything.</div>`:''}${result.blocks.map(b=>b.kind==='break'?'<div class="break">5 min · Step away and reset</div>':`<div class="block"><span class="number">${++number}</span><div class="block-content"><div class="block-title">${esc(b.title)}<span>${b.minutes} min</span></div><p>${b.pinned?'First because you chose it. ':''}${b.minutes<b.estimate?`${b.minutes} of ${b.estimate} estimated minutes.`:'Your full estimate fits.'}</p><details><summary>Why this suggestion?</summary><p>Urgency ${b.urgency} × ${state.mode==='deadlines'?3:1} + support ${b.support} = ${b.score}. ${b.pinned?'Your override takes precedence.':'Higher scores come first unless overridden.'} Due in ${b.days} day(s); ${['','low','medium','high'][b.confidence]} confidence. One block per task; ${state.cap}-minute maximum.</p></details></div></div>`).join('')||'<p>No unfinished tasks are included. Add or include a task to get a plan.</p>'}<div class="remaining"><strong>After this session</strong>${result.ranked.map(t=>{const b=result.blocks.find(b=>b.kind==='task'&&b.id===t.id);const left=t.minutes-(b?.minutes||0);return left?`<p>${esc(t.title)} · ${left} min remaining${b?'':' · not scheduled'}</p>`:'';}).join('')||'<p>No estimated work remains in the included tasks.</p>'}</div>`;
  if(!active()){$('#session-task').innerHTML=result.blocks.filter(b=>b.kind==='task').map(b=>`<option value="${b.id}">${esc(b.title)} · ${b.minutes} min</option>`).join('');if(result.blocks.some(b=>b.kind==='task'&&String(b.id)===selectedTask))$('#session-task').value=selectedTask;}
- updateControls();renderObservation();
+ updateControls();renderObservation();renderSavedStatus();
  if(taskFocus){
    // Keep the same action; when removed, use the next task, then the previous.
    let target=document.querySelector(`#tasks [data-id="${focusId}"][data-action="${focusAction}"]`);
@@ -30,7 +32,7 @@ function render(){
    target.focus();
  }
 }
-function updateControls(){$('#review-block').hidden=!reviewTarget;const busy=active();$('#start').disabled=!!busy||!result.blocks.some(b=>b.kind==='task');$('#pause').disabled=!busy;$('#finish').disabled=!busy;$('#observe').disabled=!!busy;$('#session-task').disabled=!!busy;$('#pause').textContent=clock?.status==='paused'?'Resume':'Pause';$('#sim-example').disabled=!!busy;}
+function updateControls(){$('#review-block').hidden=!reviewTarget;const busy=active();$('#restore-plan').disabled=!!busy||!savedSnapshot;$('#start').disabled=!!busy||!result.blocks.some(b=>b.kind==='task');$('#pause').disabled=!busy;$('#finish').disabled=!busy;$('#observe').disabled=!!busy;$('#session-task').disabled=!!busy;$('#pause').textContent=clock?.status==='paused'?'Resume':'Pause';$('#sim-example').disabled=!!busy;}
 function openTask(t){editing=t?.id??null;$('#task-form').reset();$('#form-error').textContent='';$('#task-heading').textContent=t?'Edit task':'Add a task';if(t)for(const key of ['title','minutes','days','confidence'])$('#task-form').elements[key].value=t[key];$('#task-dialog').showModal();$('#task-form').elements.title.focus();}
 $('#add').onclick=()=>openTask();$('#cancel-task').onclick=()=>$('#task-dialog').close();
 $('#task-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.target);const title=String(form.get('title')).trim();if(!title){$('#form-error').textContent='Enter a task name.';return;}checkpoint();const item={id:editing??Math.max(0,...state.tasks.map(t=>t.id))+1,title,minutes:Number(form.get('minutes')),days:Number(form.get('days')),confidence:Number(form.get('confidence'))};if(editing!==null)Object.assign(state.tasks.find(t=>t.id===editing),item);else state.tasks.push(item);render();$('#task-dialog').close();document.querySelector(`#tasks [data-id="${item.id}"][data-action="edit"]`)?.focus();say('Task saved. Your plan has updated.');};
@@ -41,17 +43,18 @@ for(const b of document.querySelectorAll('[data-demo]'))b.onclick=()=>{reviewTar
 $('#how').onclick=()=>$('#how-dialog').showModal();$('#close-how').onclick=()=>$('#how-dialog').close();
 function tick(){if(!clock)return;advance(clock,performance.now());$('#timer').textContent=format(clock.elapsedMs);if(clock.status==='running'&&clock.elapsedMs>=activeTask.minutes*60000){finishBlock(true);}}
 function finishBlock(automatic=false){if(!active())return;advance(clock,performance.now());clock.status='finished';observation={source:'Live observation',task:activeTask.title,elapsedMs:clock.elapsedMs,hiddenMs:clock.hiddenMs,switches:clock.switches,pauses:clock.pauses,observing:clock.observing,at:new Date().toISOString()};reviewTarget=state.tasks.includes(activeTask.sourceTask)?activeTask.sourceTask:null;decision=null;previous=null;$('#undo').disabled=true;$('#timer-state').textContent=automatic?'Block duration reached. Review the observations below.':'Block ended. Review the observations below.';render();say('Block ended. Your tasks and estimates have not been marked complete.');}
-$('#start').onclick=()=>{const b=result.blocks.find(b=>b.kind==='task'&&b.id===Number($('#session-task').value));if(!b)return;activeTask={...structuredClone(b),sourceTask:state.tasks.find(t=>t.id===b.id)};reviewTarget=null;clock=createClock(performance.now(),$('#observe').checked);clock.hidden=document.hidden;observation=null;decision=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='00:00';$('#timer-state').textContent=`Running: ${b.title} · ${b.minutes}-minute block · Observation ${clock.observing?'on':'off'}.`;updateControls();renderObservation();say('Block started. You can pause or finish at any time.');};
+$('#start').onclick=()=>{const b=result.blocks.find(b=>b.kind==='task'&&b.id===Number($('#session-task').value));if(!b)return;activeTask={...structuredClone(b),sourceTask:state.tasks.find(t=>t.id===b.id)};reviewTarget=null;clock=createClock(performance.now(),$('#observe').checked);clock.hidden=document.hidden;observation=null;decision=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='00:00';$('#timer-state').textContent=`Running: ${b.title} · ${b.minutes}-minute block · Observation ${clock.observing?'on':'off'}.`;updateControls();renderObservation();renderSavedStatus();say('Block started. You can pause or finish at any time.');};
 $('#pause').onclick=()=>{if(!active())return;if(clock.status==='running'){pause(clock,performance.now());$('#timer-state').textContent='Paused. Time and page departures are not counted.';}else{resume(clock,performance.now());clock.hidden=document.hidden;$('#timer-state').textContent=`Running: ${activeTask.title} · Observation ${clock.observing?'on':'off'}.`;}updateControls();say(clock.status==='paused'?'Timer paused.':'Timer resumed.');};
 $('#finish').onclick=()=>finishBlock();document.addEventListener('visibilitychange',()=>{if(clock)visibility(clock,document.hidden,performance.now());});setInterval(tick,500);
 $('#sim-example').onclick=()=>{if(active())return;reviewTarget=null;$('#review-block').hidden=true;clock=null;observation={source:'SIMULATED EXAMPLE',task:'Example study block',elapsedMs:600000,hiddenMs:120000,switches:3,pauses:1,observing:true,at:new Date().toISOString()};decision=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='10:00';$('#timer-state').textContent='Simulated observation loaded. No live tracking is running.';renderObservation();say('Simulated example loaded: 10 minutes, 3 departures, 2 minutes hidden. Your tasks are unchanged.');$('#session-heading').scrollIntoView({behavior:'auto',block:'start'});};
-function renderObservation(){if(!observation){$('#observations').innerHTML=active()?`<p>Block in progress · observation ${clock.observing?'on':'off'}.</p><p class="small">Review appears after the block to avoid interrupting your work.</p>`:'<p>No observations stored.</p><p class="small">Tasks and observations stay in this tab only. Reloading clears them.</p>';$('#suggestion').innerHTML='';return;}
+function renderObservation(){if(!observation){$('#observations').innerHTML=active()?`<p>Block in progress · observation ${clock.observing?'on':'off'}.</p><p class="small">Review appears after the block to avoid interrupting your work.</p>`:'<p>No observations stored.</p><p class="small">Session observations stay in this tab only. Reload clears this session; explicitly saved plans can be restored.</p>';$('#suggestion').innerHTML='';return;}
  const o=observation;$('#observations').innerHTML=`<p class="source">${esc(o.source)}</p><p>${esc(o.task)}</p><dl><dt>Elapsed block time</dt><dd>${format(o.elapsedMs)}</dd><dt>Page departures</dt><dd>${o.observing?o.switches:'Not observed'}</dd><dt>Time page hidden</dt><dd>${o.observing?format(o.hiddenMs):'Not observed'}</dd><dt>Manual pauses</dt><dd>${o.pauses}</dd></dl><p class="small">${esc(new Date(o.at).toLocaleString())} · Elapsed time is not measured concentration.</p>`;
  const inference=infer(o);$('#suggestion').innerHTML=`<div class="suggestion">${decision?`<strong>${esc(decision)}</strong><p>Current maximum: ${state.cap} minutes per block.</p>`:!o.observing?'<p>Observation was off. No behavioural adaptation proposed.</p>':!inference.suggest?`<p>${inference.reason}</p>`:`<strong>Would a shorter block suit you?</strong><p>${inference.reason} You may also have been reading elsewhere; we cannot tell.</p><p class="small">Rule: ${inference.threshold}</p>${state.cap===15?'<p>Your maximum is already 15 minutes. No change needed.</p>':'<div class="actions"><button id="accept" class="primary">Try 15-minute blocks</button><button id="reject">Keep my setting</button></div>'}`}</div>`;
  if($('#accept'))$('#accept').onclick=()=>{checkpoint();state.cap=15;decision='You accepted the suggestion to use 15-minute blocks.';render();say('Maximum changed to 15 minutes by you. Undo restores the previous setting.');};if($('#reject'))$('#reject').onclick=()=>{checkpoint();decision='You rejected the suggestion; it did not change your setting.';renderObservation();say('Suggestion rejected. No plan setting changed.');};
 }
 $('#clear').onclick=()=>{reviewTarget=null;clock=null;observation=null;decision=null;activeTask=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='00:00';$('#timer-state').textContent='Stopped. All observations and decisions forgotten.';render();say('Observations, decision and undo history cleared. Your task list and chosen block maximum remain.');};
 $('#export').onclick=()=>{const snapshot={prototype:'Studyloom v0.1',exportedAt:new Date().toISOString(),inputs:state,plan:result,latestObservation:observation,decision,timerInProgress:!!active(),note:'Estimates and adaptation thresholds are unvalidated assumptions. Simulated observations are labelled by source.'};const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='studyloom-session.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);say('Export download requested. Check your browser downloads.');};
+readSavedPlan();
 render();
 
 function invalidateReview(){reviewDraft=null;$('#review-preview').textContent='';$('#apply-review').hidden=true;$('#review-error').textContent='';}
@@ -81,3 +84,32 @@ $('#apply-review').onclick=()=>{
 };
 $('#cancel-review').onclick=()=>{$('#review-dialog').close();invalidateReview();};
 $('#review-dialog').addEventListener('cancel',invalidateReview);
+
+function readSavedPlan(){
+ savedSnapshot=null;savedRawExists=false;storageError='';
+ try{const raw=document.defaultView.localStorage.getItem(STORAGE_KEY);savedRawExists=raw!==null;if(raw!==null)savedSnapshot=decodePlan(raw);}
+ catch{storageError=savedRawExists?'The saved copy is unreadable. Your current plan is unchanged. Delete it or save a replacement.':'Browser storage is unavailable. You can still use and export your plan.';}
+}
+function renderSavedStatus(){
+ $('#delete-plan').disabled=!savedRawExists;
+ $('#restore-plan').disabled=!!active()||!savedSnapshot;
+ if(storageError){$('#save-status').textContent=storageError;return;}
+ if(!savedSnapshot){$('#save-status').textContent='Not saved on this browser.';return;}
+ let matches=false;try{matches=JSON.stringify(cleanPlan(state))===JSON.stringify(savedSnapshot.plan);}catch{}
+ $('#save-status').textContent=`Saved ${new Date(savedSnapshot.savedAt).toLocaleString()}. ${matches?'Current plan matches the saved copy.':'Current plan differs from the saved copy. Save again to keep these changes.'}${active()?' Finish or stop the block before restoring.':''}`;
+}
+$('#save-plan').onclick=()=>{
+ try{const raw=encodePlan(state);document.defaultView.localStorage.setItem(STORAGE_KEY,raw);readSavedPlan();renderSavedStatus();say('Tasks and planning settings saved on this browser. Observations were not saved.');}
+ catch{storageError='Saving failed. The current plan is still available; export it if you need a copy.';renderSavedStatus();}
+};
+$('#restore-plan').onclick=()=>{
+ if(active())return;
+ // Re-read in case another tab replaced or deleted the copy.
+ readSavedPlan();if(!savedSnapshot){renderSavedStatus();return;}
+ checkpoint();state=structuredClone(savedSnapshot.plan);reviewTarget=null;render();say('Saved plan restored. Check due-in-days values if saved on another day. Undo restores your previous plan.');
+};
+$('#delete-plan').onclick=()=>{
+ try{document.defaultView.localStorage.removeItem(STORAGE_KEY);readSavedPlan();renderSavedStatus();say('Saved copy deleted from this browser. Current tasks remain; nothing will be saved again unless you choose Save.');}
+ catch{storageError='Could not delete the saved copy. Browser storage may be blocked.';renderSavedStatus();}
+};
+document.defaultView.addEventListener('storage',event=>{if(event.key===STORAGE_KEY||event.key===null){readSavedPlan();renderSavedStatus();}});
