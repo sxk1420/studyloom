@@ -1,6 +1,6 @@
 # Studyloom
 
-README prose word count: 564
+README prose word count: 649
 
 An explainable study planner with an optional observation-and-adaptation loop, developed for an Intelligent Interactive Systems project.
 
@@ -41,6 +41,11 @@ HTML and CSS provide the responsive interface. JavaScript modules implement rule
 - Adaptation decisions are described as past actions, with the current block maximum displayed separately to avoid stale claims after manual changes.
 - Task actions restore keyboard focus after rendering; deletion selects the next task (or previous last task), with Add as the empty-list fallback. Saving a task focuses its Edit control.
 - All 13 engine tests and JavaScript syntax checks pass. The new feedback and focus behaviours still need browser verification.
+
+### Usability refinement — 23 November 2026
+- Increased body text to 16px, regular controls to at least 14px and small metadata to 13px. Added 44px control heights, wrapping for long task names and wider preference selection.
+- Added accessible names to both dialogs and preserved the selected timer task when it remains in the updated plan.
+- All 13 engine tests and JavaScript syntax checks pass. The earlier temporary simulated-browser harness is no longer available; this refinement has not had browser or simulated-browser verification.
 
 ## AI assistance
 OpenAI Codex helped interpret the supplied brief and slides, design the prototype, generate implementation and tests, and draft this README. Automated checks verified arithmetic, thresholds and timer transitions. The student still needs to inspect the interface, verify lecture alignment, conduct any claimed user evaluation and understand the implementation. No participant feedback or learning outcome has been invented.

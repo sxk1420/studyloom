@@ -26,3 +26,8 @@ Ask a volunteer to explain why the first task was selected, override it, recover
 3. Use Tab and Enter to pin, exclude, complete and remove tasks. Focus should stay on the same action when it survives. Deletion should focus the next task's Edit control, then the previous task if last, or Add if the list becomes empty. Saving an edit or new task should focus that task's Edit control.
 
 These three checks are pending user/browser verification; only the ranking regression has an automated engine test.
+
+## Readability and selection refinement — pending verification
+- Select the second scheduled task for the timer, then change a planning preference or block maximum. It should remain selected if still scheduled. Excluding it should fall back to an available task.
+- Check at a 375px viewport and 200% zoom that labels, long task names, metrics and controls remain readable without horizontal scrolling.
+- Inspect both dialogs with accessibility tooling; each should have a heading-derived accessible name.
