@@ -5,7 +5,16 @@
 <section class="saved-plan" aria-labelledby="save-heading"><div><h2 id="save-heading">Keep a plan for next time</h2><p class="small">Optional: save tasks and planning settings in this browser. Nothing is saved until you choose Save. Timer activity and observations are never saved.</p><p id="save-status" role="status" aria-live="polite"></p></div><div class="actions"><button id="save-plan">Save plan on this browser</button><button id="restore-plan" disabled>Restore saved plan</button><button id="delete-plan" disabled>Delete saved plan</button></div><p class="small">One saved plan per browser and site address. Saving replaces that copy; later edits are not saved automatically. Deleting the saved copy leaves your current tasks intact. Due-in-days values are stored as entered—check deadlines when restoring on another day.</p></section>
 <div class="statusbar"><p id="status" role="status" aria-live="polite">Example tasks loaded. Edit them to make this session yours.</p><button id="undo" disabled>Undo last change</button></div>
 <div class="workspace" id="workspace"><section class="card"><div class="heading"><div><span class="eyebrow">YOUR INPUT</span><h2>What’s on your mind?</h2></div><span id="count" class="badge"></span></div><p class="subtle">You choose the tasks. Every priority is adjustable.</p><div id="tasks"></div><button id="add" class="dashed">＋ Add a task</button><p class="small">Due in days: 0 = today, −1 = yesterday. Confidence is your own assessment.</p></section>
-<section class="card plan"><div class="heading"><div><span class="eyebrow">YOUR SESSION</span><h2>Make room for progress.</h2></div><span class="live">UPDATES ON EDIT</span></div><div class="settings"><label>Available minutes<input id="budget" type="number" min="5" max="240" step="1" value="60" required></label><label>Planning preference<select id="mode"><option value="balanced">Urgency + confidence</option><option value="deadlines">Emphasise deadlines</option></select></label><label>Maximum block<select id="cap"><option value="25">25 minutes</option><option value="15">15 minutes</option></select></label></div><div id="plan"></div><button id="export" class="wide">Export plan and observations</button></section></div>
+<section class="card plan"><div class="heading"><div><span class="eyebrow">YOUR SESSION</span><h2>Make room for progress.</h2></div><span class="live">UPDATES ON EDIT</span></div><div class="settings"><label>Available minutes<input id="budget" type="number" min="5" max="240" step="1" value="60" required></label><label>Planning preference<select id="mode"><option value="balanced">Urgency + confidence</option><option value="deadlines">Emphasise deadlines</option></select></label><label>Maximum block<select id="cap"><option value="25">25 minutes</option><option value="15">15 minutes</option></select></label></div><div id="plan"></div><button id="export" class="wide">Export plan and observations</button> <button id="import-plan" class="wide" type="button">
+  Import an exported plan
+</button>
+
+<input
+  id="import-file"
+  type="file"
+  accept=".json,application/json"
+  hidden
+></section></div>
 <section class="card session" aria-labelledby="session-heading"><div class="heading"><div><span class="eyebrow">TRY, REFLECT, ADJUST</span><h2 id="session-heading">A plan that leaves room to change.</h2></div><span class="badge">OPTIONAL</span></div><div class="session-grid"><div><p class="subtle">Start a block from your current plan. At the end, inspect the observations before choosing what happens next.</p><label>Study task<select id="session-task"></select></label><label class="check"><input type="checkbox" id="observe">Observe when this page becomes hidden during a block</label><p class="small">Off by default. We count departures and hidden time only—not what you open. Hidden time may be productive reading. No camera, microphone or external AI service.</p><div class="timer" id="timer" role="timer" aria-label="Elapsed active block time">00:00</div><p id="timer-state" class="small">Ready · Nothing is being observed.</p><div class="actions"><button id="start" class="primary">Start block</button><button id="pause" disabled>Pause</button><button id="finish" disabled>Finish & review</button><button id="review-block" hidden>Review progress</button></div></div><div class="observation"><span class="eyebrow">VISIBLE SESSION MEMORY</span><div id="observations"><p>No observations yet.</p><p class="small">Observations live in this tab only. Reloading clears them. Tasks persist only when explicitly saved. Starting a new block replaces the last observation.</p></div><div id="suggestion" aria-live="polite"></div><button id="clear">Forget observations</button></div></div></section>
 <section class="principles"><div><h3>See the reasoning</h3><p>Inputs and scoring are always inspectable.</p></div><div><h3>Correct the assumption</h3><p>A page departure is an observation, not a diagnosis.</p></div><div><h3>Choose what changes</h3><p>Suggestions need your acceptance. Changes can be undone.</p></div></section><footer><span>Studyloom · Intelligent Interactive Systems</span><span>Rule-based prototype · Optional local plan saving</span></footer></main>
 <dialog id="task-dialog" aria-labelledby="task-heading"><form id="task-form"><span class="eyebrow">YOUR TASK</span><h2 id="task-heading">Add a task</h2><label>Task name<input name="title" maxlength="100" required placeholder="e.g. Practise recursion"></label><div class="fields"><label>Estimate (minutes)<input name="minutes" type="number" min="5" max="240" step="1" value="25" required></label><label>Due in days<input name="days" type="number" min="-30" max="365" step="1" value="1" required></label><label>Confidence<select name="confidence"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option></select></label></div><p id="form-error" role="alert"></p><div class="actions"><button type="submit" class="primary">Save task</button><button type="button" id="cancel-task">Cancel</button></div></form></dialog>
@@ -16,4 +25,36 @@
 <p class="small">Use your judgement. Timer duration does not tell us how much work you completed. Choose Finished if nothing remains.</p>
 <p id="review-error" role="alert"></p><div id="review-preview" aria-live="polite"></div>
 <div class="actions"><button type="submit" class="primary">Preview next plan</button><button type="button" id="apply-review" hidden>Apply update</button><button type="button" id="cancel-review">Cancel</button></div>
-</form></dialog><script type="module" src="src/app.mjs"></script></body></html>
+</form></dialog><dialog id="import-dialog" aria-labelledby="import-heading">
+  <span class="eyebrow">CHECK BEFORE REPLACING</span>
+  <h2 id="import-heading">Import this plan?</h2>
+
+  <p>
+    Applying replaces your current tasks and planning settings.
+    Undo will restore your previous plan.
+  </p>
+
+  <p class="small">
+    Observations, timer activity and adaptation decisions from the file
+    are not imported. Your saved browser copy will not change unless
+    you choose Save afterwards.
+  </p>
+
+  <div id="import-preview"></div>
+
+  <p class="small">
+    Due-in-days values are restored as entered.
+    Check deadlines if this export was created on another day.
+  </p>
+
+  <p id="import-error" role="alert"></p>
+
+  <div class="actions">
+    <button id="apply-import" type="button" class="primary">
+      Replace current plan
+    </button>
+    <button id="cancel-import" type="button">
+      Cancel
+    </button>
+  </div>
+</dialog><script type="module" src="src/app.mjs"></script></body></html>

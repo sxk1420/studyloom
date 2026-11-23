@@ -1,4 +1,5 @@
 import {STORAGE_KEY,encodePlan,decodePlan,cleanPlan} from './storage.mjs';
+import {parsePlanImport} from './import.mjs';
 import {defaults,plan,reviewTask,infer,createClock,advance,visibility,pause,resume} from './engine.mjs';
 const $=s=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state=defaults(),previous=null,editing=null,clock=null,observation=null,decision=null,activeTask=null,result;
@@ -32,7 +33,7 @@ function render(){
    target.focus();
  }
 }
-function updateControls(){$('#review-block').hidden=!reviewTarget;const busy=active();$('#restore-plan').disabled=!!busy||!savedSnapshot;$('#start').disabled=!!busy||!result.blocks.some(b=>b.kind==='task');$('#pause').disabled=!busy;$('#finish').disabled=!busy;$('#observe').disabled=!!busy;$('#session-task').disabled=!!busy;$('#pause').textContent=clock?.status==='paused'?'Resume':'Pause';$('#sim-example').disabled=!!busy;}
+function updateControls(){$('#review-block').hidden=!reviewTarget;const busy=active();$('#import-plan').disabled = !!busy;$('#restore-plan').disabled=!!busy||!savedSnapshot;$('#start').disabled=!!busy||!result.blocks.some(b=>b.kind==='task');$('#pause').disabled=!busy;$('#finish').disabled=!busy;$('#observe').disabled=!!busy;$('#session-task').disabled=!!busy;$('#pause').textContent=clock?.status==='paused'?'Resume':'Pause';$('#sim-example').disabled=!!busy;}
 function openTask(t){editing=t?.id??null;$('#task-form').reset();$('#form-error').textContent='';$('#task-heading').textContent=t?'Edit task':'Add a task';if(t)for(const key of ['title','minutes','days','confidence'])$('#task-form').elements[key].value=t[key];$('#task-dialog').showModal();$('#task-form').elements.title.focus();}
 $('#add').onclick=()=>openTask();$('#cancel-task').onclick=()=>$('#task-dialog').close();
 $('#task-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.target);const title=String(form.get('title')).trim();if(!title){$('#form-error').textContent='Enter a task name.';return;}checkpoint();const item={id:editing??Math.max(0,...state.tasks.map(t=>t.id))+1,title,minutes:Number(form.get('minutes')),days:Number(form.get('days')),confidence:Number(form.get('confidence'))};if(editing!==null)Object.assign(state.tasks.find(t=>t.id===editing),item);else state.tasks.push(item);render();$('#task-dialog').close();document.querySelector(`#tasks [data-id="${item.id}"][data-action="edit"]`)?.focus();say('Task saved. Your plan has updated.');};
@@ -113,3 +114,140 @@ $('#delete-plan').onclick=()=>{
  catch{storageError='Could not delete the saved copy. Browser storage may be blocked.';renderSavedStatus();}
 };
 document.defaultView.addEventListener('storage',event=>{if(event.key===STORAGE_KEY||event.key===null){readSavedPlan();renderSavedStatus();}});
+let importDraft = null;
+let importBase = null;
+let importRequest = 0;
+
+function clearImportPreview() {
+  importRequest++;
+  importDraft = null;
+  importBase = null;
+  $('#import-file').value = '';
+  $('#import-preview').replaceChildren();
+  $('#import-error').textContent = '';
+}
+
+$('#import-plan').onclick = () => {
+  if (active()) return;
+
+  clearImportPreview();
+  $('#import-file').click();
+};
+
+$('#import-file').onchange = async () => {
+  const file = $('#import-file').files?.[0];
+  if (!file) return;
+
+  const request = ++importRequest;
+
+  try {
+    if (file.size > 250000) {
+      throw new Error('Choose a JSON export smaller than 250 KB.');
+    }
+
+    const raw = await file.text();
+
+    // Ignore an older read if another file was selected meanwhile.
+    if (request !== importRequest) return;
+
+    if (active()) {
+      throw new Error('Finish or stop your block before importing a plan.');
+    }
+
+    const proposedState = parsePlanImport(raw);
+    const proposedPlan = plan(proposedState);
+
+    importDraft = proposedState;
+    importBase = JSON.stringify(state);
+
+    $('#import-preview').innerHTML = `
+      <div class="notice">
+        <strong>Preview only — nothing has changed</strong>
+
+        <p>
+          ${proposedState.tasks.length} tasks ·
+          ${proposedState.budget} available minutes ·
+          ${proposedState.cap}-minute maximum block
+        </p>
+
+        <p>
+          Preference:
+          ${
+            proposedState.mode === 'deadlines'
+              ? 'Emphasise deadlines'
+              : 'Urgency + confidence'
+          }
+        </p>
+
+        <p>
+          ${proposedPlan.study} planned study minutes ·
+          ${proposedPlan.breaks} break minutes ·
+          ${proposedPlan.unused} unused minutes
+        </p>
+      </div>
+
+      <h3>Tasks in this file</h3>
+
+      <ul>
+        ${
+          proposedState.tasks.map(task => `
+            <li>
+              ${esc(task.title)} —
+              ${task.minutes} estimated minutes;
+              due in ${task.days} day(s);
+              ${['', 'low', 'medium', 'high'][task.confidence]} confidence
+              ${task.done ? ' · complete' : ''}
+              ${task.excluded ? ' · excluded' : ''}
+              ${task.pinned ? ' · first priority' : ''}
+            </li>
+          `).join('') || '<li>No tasks. Applying will empty your task list.</li>'
+        }
+      </ul>
+    `;
+
+    $('#import-error').textContent = '';
+    $('#apply-import').disabled = false;
+    $('#import-dialog').showModal();
+
+    // Start on Cancel so confirmation is a deliberate choice.
+    $('#cancel-import').focus();
+  } catch (error) {
+    if (request !== importRequest) return;
+
+    clearImportPreview();
+    say(`Import failed: ${error.message} Your current plan is unchanged.`);
+  }
+};
+
+$('#apply-import').onclick = () => {
+  if (!importDraft) return;
+
+  if (active() || JSON.stringify(state) !== importBase) {
+    $('#import-error').textContent =
+      'Your session changed after the preview. Cancel and select the file again.';
+    $('#apply-import').disabled = true;
+    return;
+  }
+
+  checkpoint();
+  state = structuredClone(importDraft);
+  reviewTarget = null;
+
+  render();
+  $('#import-dialog').close();
+  clearImportPreview();
+  $('#undo').focus();
+
+  say(
+    'Plan imported. Check its deadlines. Undo restores your previous plan. ' +
+    'Your saved browser copy has not changed.'
+  );
+};
+
+$('#cancel-import').onclick = () => {
+  $('#import-dialog').close();
+  clearImportPreview();
+  say('Import cancelled. Your current plan is unchanged.');
+};
+
+$('#import-dialog').addEventListener('cancel', clearImportPreview);
