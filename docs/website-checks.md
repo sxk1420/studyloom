@@ -31,3 +31,14 @@ These three checks are pending user/browser verification; only the ranking regre
 - Select the second scheduled task for the timer, then change a planning preference or block maximum. It should remain selected if still scheduled. Excluding it should fall back to an available task.
 - Check at a 375px viewport and 200% zoom that labels, long task names, metrics and controls remain readable without horizontal scrolling.
 - Inspect both dialogs with accessibility tooling; each should have a heading-derived accessible name.
+
+## End-of-block review
+1. Start a live block and finish early. Select Review progress. The original estimate should remain unchanged.
+2. Choose Made progress and enter 10 remaining minutes. Preview the next plan, then Cancel. Nothing should change.
+3. Repeat and Apply update. The task estimate should become 10; Undo restores its previous estimate.
+4. Repeat with Finished; it should leave the schedule only after Apply. Undo restores it.
+5. Choose Need more time and enter 60. Verify a revised estimate can increase.
+6. Change the estimate after previewing; Apply must disappear until a new preview is generated.
+7. Remove the timed task during its block. Finishing must not offer a review for a different task. Simulated observation examples must not offer task review.
+
+Verification: 13 simulated-DOM checks passed for these review flows, cancellation, focus after applying, validation and forgetting. Native dialog rendering and real-browser interaction remain pending.

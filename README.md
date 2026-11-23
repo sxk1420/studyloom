@@ -1,11 +1,11 @@
 # Studyloom
 
-README prose word count: 649
+README prose word count: 770
 
 An explainable study planner with an optional observation-and-adaptation loop, developed for an Intelligent Interactive Systems project.
 
 ## Status
-Implemented: editable tasks, transparent ranking, bounded session plans, priority override, exclusion, completion, one-step undo, timer, opt-in page-visibility observation, tentative adaptation, accept/reject controls, forget controls and JSON export.
+Implemented: editable tasks, transparent ranking, bounded session plans, priority override, exclusion, completion, one-step undo, timer, opt-in page-visibility observation, tentative adaptation, accept/reject controls, forget controls, end-of-block progress review with preview/apply/undo, and JSON export.
 
 Demonstration tasks are fictional. The interrupted-session example injects labelled simulated observations into the same inference function used by the live timer. No trained model, grade prediction, camera, microphone, persistent profile or external AI call is used.
 
@@ -24,7 +24,7 @@ Open http://127.0.0.1:5173. Keep the terminal running; Ctrl+C stops the server.
 npm test
 ```
 
-Thirteen automated tests cover planning, invalid inputs, budget invariants, inference thresholds and timer observation rules.
+Sixteen automated tests cover planning, invalid inputs, budget invariants, inference thresholds and timer observation rules.
 
 ## Technology
 HTML and CSS provide the responsive interface. JavaScript modules implement rules, state and controls. The browser Page Visibility API supplies optional page-hidden events; a monotonic clock supplies elapsed time. Node.js serves local files and runs tests. Everything stays in tab memory until exported; reload clears state.
@@ -46,6 +46,12 @@ HTML and CSS provide the responsive interface. JavaScript modules implement rule
 - Increased body text to 16px, regular controls to at least 14px and small metadata to 13px. Added 44px control heights, wrapping for long task names and wider preference selection.
 - Added accessible names to both dialogs and preserved the selected timer task when it remains in the updated plan.
 - All 13 engine tests and JavaScript syntax checks pass. The earlier temporary simulated-browser harness is no longer available; this refinement has not had browser or simulated-browser verification.
+
+### Block review — 23 November 2026
+- A finished live block now offers Review progress: Finished, Made progress or Need more time. Remaining work is explicitly estimated by the student, never inferred from elapsed time.
+- Preview shows the revised schedule before applying. Cancel keeps the original plan; Apply supports one-step Undo. The current time budget is reused and is identified in the preview.
+- Missing tasks and simulated observations cannot update a real task through this review. Forget clears review access.
+- All 16 engine tests and 13 isolated simulated-DOM review checks passed. Browser-native dialog behaviour and visual layout remain unverified. The simulated-DOM checks used temporary jsdom tooling; it is not an app dependency.
 
 ## AI assistance
 OpenAI Codex helped interpret the supplied brief and slides, design the prototype, generate implementation and tests, and draft this README. Automated checks verified arithmetic, thresholds and timer transitions. The student still needs to inspect the interface, verify lecture alignment, conduct any claimed user evaluation and understand the implementation. No participant feedback or learning outcome has been invented.
