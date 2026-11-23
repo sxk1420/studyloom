@@ -1,6 +1,6 @@
 # Website acceptance checks
 
-Status: 13 engine tests and syntax checks passed. The local server returned HTTP 200. Automated browser launch failed in this environment, so the following browser checks have not yet been completed. Do not present these as participant results.
+Status: the repository now contains 16 engine tests and 19 simulated-DOM interface tests; all 35 passed on 23 November 2026. Earlier server checks returned HTTP 200. Real-browser visual and native accessibility checks remain pending. Do not present these as participant results.
 
 ## 1. Normal planning
 Load “A balanced hour”. Expect 50 study minutes, 5 break minutes, 5 unused minutes and 45 estimated minutes remaining. Expand the first explanation. Put database notes first: the first block should change despite its lower score. Undo restores the prior order.
@@ -42,3 +42,13 @@ These three checks are pending user/browser verification; only the ranking regre
 7. Remove the timed task during its block. Finishing must not offer a review for a different task. Simulated observation examples must not offer task review.
 
 Verification: 13 simulated-DOM checks passed for these review flows, cancellation, focus after applying, validation and forgetting. Native dialog rendering and real-browser interaction remain pending.
+
+## Reproducible verification — 23 November 2026
+
+Run `npm ci`, then `npm test` from the repository root. `npm run test:engine` runs the 16 logic tests; `npm run test:interface` runs the 19 interface tests. The lockfile fixes dependency versions. No test server, browser download, user account or API key is needed.
+
+The interface suite reads the actual index.html and imports a fresh application module for each test. It checks ranking preference changes, user overrides, current-setting feedback, focus restoration, safe text rendering, validation, selected-task preservation, timer controls, synthetic observation thresholds, automatic completion, review preview/cancel/apply/undo, invalidation of old previews, missing-task handling and forgetting.
+
+The harness provides controlled time, synthetic visibility events, and minimal dialog/scroll shims. It restores globals and closes each document after a test, and fails on unhandled interface errors. “Live observation” in a test means the application's live code path received synthetic events; it does not mean a real person was observed.
+
+These tests establish repeatable interface state transitions. They do not establish visual correctness, native keyboard/focus trapping, mobile layout, browser throttling behaviour, screen-reader usability or improved learning. The manual scenarios above remain the real-browser checklist. Earlier notes about temporary scripts describe historical checks; the committed suite is now the reproducible source of evidence.

@@ -1,68 +1,63 @@
 # Studyloom
 
-README prose word count: 770
+README prose word count: 536
 
-An explainable study planner with an optional observation-and-adaptation loop, developed for an Intelligent Interactive Systems project.
+An explainable study planner with a student-controlled observation and adaptation loop, built for an Intelligent Interactive Systems project.
 
 ## Status
-Implemented: editable tasks, transparent ranking, bounded session plans, priority override, exclusion, completion, one-step undo, timer, opt-in page-visibility observation, tentative adaptation, accept/reject controls, forget controls, end-of-block progress review with preview/apply/undo, and JSON export.
+Implemented: editable tasks, explained ranking, time-limited plans, priority overrides, exclusion/completion, undo, timer, optional page-visibility observation, accept/reject adaptation, forget controls, JSON export and progress review with preview/apply/undo.
 
-Demonstration tasks are fictional. The interrupted-session example injects labelled simulated observations into the same inference function used by the live timer. No trained model, grade prediction, camera, microphone, persistent profile or external AI call is used.
+Example tasks are fictional. The interrupted-session example injects labelled simulated observations into the same inference function used by the live timer. No trained model, external AI service, camera or microphone is used. Weights and thresholds are unvalidated design assumptions. Page departures do not establish distraction; elapsed time does not establish progress. No participant study or learning-benefit evaluation has been conducted.
 
-This is a prototype. Weights and adaptation thresholds are design assumptions, not validated learning guidance. Page departures do not establish distraction. No user study has been conducted. Browser and accessibility checks remain pending.
-
-## Run
-Requires Node.js 18 or later. No dependencies or API keys.
+## Run and test
+Requires Node.js 18 or later and npm. The website itself has no external runtime dependencies or API keys.
 
 ```sh
 npm start
 ```
 
-Open http://127.0.0.1:5173. Keep the terminal running; Ctrl+C stops the server.
+Open http://127.0.0.1:5173. Keep the terminal running; Ctrl+C stops it.
+
+To install the locked test dependencies and run all checks:
 
 ```sh
+npm ci
 npm test
 ```
 
-Sixteen automated tests cover planning, invalid inputs, budget invariants, inference thresholds and timer observation rules.
+Or run each suite separately:
 
-## Technology
-HTML and CSS provide the responsive interface. JavaScript modules implement rules, state and controls. The browser Page Visibility API supplies optional page-hidden events; a monotonic clock supplies elapsed time. Node.js serves local files and runs tests. Everything stays in tab memory until exported; reload clears state.
+```sh
+npm run test:engine
+npm run test:interface
+```
+
+Current result: **35 passing tests** (16 engine, 19 interface). The jsdom development dependency tests the real HTML and application event handlers in a simulated DOM. It does not verify CSS layout, native modal focus trapping, real keyboard input, browser background timing or actual tab visibility. See [verification instructions](docs/website-checks.md) for browser checks and test limitations.
+
+## Technology and memory
+HTML/CSS provide the interface; JavaScript modules implement rules and controls. The browser Page Visibility API and monotonic timer supply optional observations. Node.js serves local files and runs tests. jsdom is used only during testing.
+
+Tasks, the latest observation and one-step undo live in tab memory; reload clears them. Forget clears observations, decisions and review access. Exports are separate files. Progress review uses the current time budget and never deducts time or marks completion automatically.
 
 ## Development record
-- Initial concept: prioritise tasks from deadlines and confidence, explain the score, and retain user overrides.
-- Lecture review: Lecture 2 requires sensing beyond explicit commands and interpretation under uncertainty. The design was extended with optional page-visibility observations and tentative shorter-block suggestions.
-- Implementation: separate pure planning/inference functions from interface code. Adaptation appears after a block, requires acceptance, and never automatically completes tasks.
-- Checks: 13 automated tests passed, including every supported budget at both block maxima. JavaScript syntax checks passed; the local server returned HTTP 200. Browser automation could not launch in this environment. These tests do not demonstrate improved learning or usability.
-- Recovery: forget removes observations, decisions and undo history; plan undo never rewinds live measurements.
+- [Initial prototype](https://github.com/sxk1420/studyloom/commit/2f501f5): task ranking, explanations and reversible user controls. Lecture 2 motivated optional observation and uncertain adaptation rather than relying on task sorting alone. Review fixes made preference modes meaningfully different and corrected stale adaptation feedback.
+- [Readability refinement](https://github.com/sxk1420/studyloom/commit/45379cf): larger controls/text, named dialogs and preserved timer-task selection.
+- [Review logic](https://github.com/sxk1420/studyloom/commit/e8f8d14): validated remaining-work estimates and non-mutating previews, covered by engine tests.
+- [Review interface](https://github.com/sxk1420/studyloom/commit/29a7cf1): explicit preview/apply/cancel, completion and undo. Thirteen temporary simulated-DOM checks passed at this stage.
+- Reproducible verification: moved interface checks into the repository with isolated state, controlled time, labelled synthetic visibility and a dependency lockfile. All 35 tests passed. Earlier temporary checks are superseded by this rerunnable suite.
 
-### Review fixes — 18 November 2026
-- Balanced scoring now uses urgency + support; deadline scoring uses 3 × urgency + support. A regression test verifies a case where the two preferences produce different orders while preserving a user override.
-- Adaptation decisions are described as past actions, with the current block maximum displayed separately to avoid stale claims after manual changes.
-- Task actions restore keyboard focus after rendering; deletion selects the next task (or previous last task), with Add as the empty-list fallback. Saving a task focuses its Edit control.
-- All 13 engine tests and JavaScript syntax checks pass. The new feedback and focus behaviours still need browser verification.
-
-### Usability refinement — 23 November 2026
-- Increased body text to 16px, regular controls to at least 14px and small metadata to 13px. Added 44px control heights, wrapping for long task names and wider preference selection.
-- Added accessible names to both dialogs and preserved the selected timer task when it remains in the updated plan.
-- All 13 engine tests and JavaScript syntax checks pass. The earlier temporary simulated-browser harness is no longer available; this refinement has not had browser or simulated-browser verification.
-
-### Block review — 23 November 2026
-- A finished live block now offers Review progress: Finished, Made progress or Need more time. Remaining work is explicitly estimated by the student, never inferred from elapsed time.
-- Preview shows the revised schedule before applying. Cancel keeps the original plan; Apply supports one-step Undo. The current time budget is reused and is identified in the preview.
-- Missing tasks and simulated observations cannot update a real task through this review. Forget clears review access.
-- All 16 engine tests and 13 isolated simulated-DOM review checks passed. Browser-native dialog behaviour and visual layout remain unverified. The simulated-DOM checks used temporary jsdom tooling; it is not an app dependency.
+Recent commit links become available after those commits are pushed.
 
 ## AI assistance
-OpenAI Codex helped interpret the supplied brief and slides, design the prototype, generate implementation and tests, and draft this README. Automated checks verified arithmetic, thresholds and timer transitions. The student still needs to inspect the interface, verify lecture alignment, conduct any claimed user evaluation and understand the implementation. No participant feedback or learning outcome has been invented.
+OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. Human browser review and final course alignment remain necessary. No user feedback or evaluation results have been invented.
 
-## Inspection guide
-- `src/engine.mjs`: scoring, planning, inference and observation functions.
-- `src/app.mjs`: interface state and interaction controls.
-- `tests/engine.test.mjs`: automated verification.
-- `docs/website-checks.md`: walkthrough and pending browser checks.
-- `docs/lecture-mapping.md`: design notes tied to supplied slide pages; not a report.
+## Project files
+- `src/engine.mjs`: planning, inference, timing and review logic.
+- `src/app.mjs`: application state and interaction handlers.
+- `tests/`: engine and simulated-interface tests.
+- `docs/website-checks.md`: verification evidence and manual checks.
+- `docs/lecture-mapping.md`: design notes tied to supplied slide pages.
 
 Public repository: https://github.com/sxk1420/studyloom
 
-No submission commit is designated yet. Hosting, browser verification, evaluation and the assignment report are unfinished. No lecture PDFs are redistributed in this repository.
+No final submission commit is designated yet. Hosting, full real-browser verification, system diagram, illustrated interactions and the report remain unfinished. Lecture PDFs are not redistributed. No accompanying ZIP is currently needed.
