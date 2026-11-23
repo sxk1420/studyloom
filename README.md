@@ -64,6 +64,13 @@ Recent commit links become available after those commits are pushed.
 
 OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. Human browser review and final course alignment remain necessary. No user feedback or evaluation results have been invented.
 
+## Supporting documentation
+
+- [System architecture and boundaries](docs/system-diagram.md)
+- [Three illustrated interaction examples](docs/interaction-walkthrough.md)
+- [Verification evidence and manual checks](docs/website-checks.md)
+- [Lecture concept mapping](docs/lecture-mapping.md)
+
 ## Project files
 
 - `src/engine.mjs`: planning, inference, timing and review logic.
