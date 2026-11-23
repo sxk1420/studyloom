@@ -5,80 +5,32 @@ explicitly simulated observations. No trained model or external AI API is used.
 
 ```mermaid
 flowchart TD
-    U["Student"]
+    A["Student: tasks, estimates and preferences"]
+    B["Current tasks and settings"]
+    C["Rule-based ranking and time allocation"]
+    D["Study plan with explanations"]
+    E["Optional timer and opt-in page visibility"]
+    F["Latest block observations"]
+    G["Rule-based adaptation suggestion"]
+    H["Student accepts or rejects"]
+    I["Student reviews remaining work"]
+    J["Preview revised plan"]
+    K["Student applies or cancels"]
+    S["SIMULATED: example observations"]
 
-    subgraph Browser["Browser — implemented"]
-        UI["Controls and task inputs"]
-        STATE["Current tasks and settings"]
-        RANK["Rule-based ranking"]
-        PLAN["Time-budget planner"]
-        VIEW["Plan and explanations"]
-
-        TIMER["Optional block timer"]
-        SENSE["Opt-in page visibility"]
-        OBS["Latest block observations"]
-        INFER["Rule-based uncertain inference"]
-        SUGGEST["Shorter-block suggestion"]
-        CHOICE["Accept or reject"]
-
-        REVIEW["Student progress review"]
-        PREVIEW["Preview revised plan"]
-        APPLY["Apply or cancel"]
-        UNDO["One-step Undo"]
-
-        SAVE["Explicit Save / Restore / Delete"]
-        LOCAL[("Local storage: tasks and settings")]
-
-        EXPORT["JSON export"]
-        IMPORT["Validate import and preview"]
-        CONFIRM["Confirm replacement or cancel"]
-    end
-
-    DEMO["SIMULATED: interrupted-session example"]
-    FILE["Student-owned JSON file"]
-
-    U --> UI
-    UI --> STATE
-    STATE --> RANK
-    RANK --> PLAN
-    PLAN --> VIEW
-    VIEW --> U
-
-    U --> TIMER
-    TIMER --> OBS
-    SENSE --> OBS
-    U -->|"Enable observation"| SENSE
-    DEMO -.->|"Labelled test observations"| OBS
-    OBS --> INFER
-    INFER --> SUGGEST
-    SUGGEST --> U
-    U --> CHOICE
-    CHOICE -->|"Accept: change block maximum"| STATE
-    CHOICE -->|"Reject: keep setting"| VIEW
-
-    TIMER -->|"Finished live block"| REVIEW
-    U -->|"Outcome and remaining estimate"| REVIEW
-    REVIEW --> PREVIEW
-    PREVIEW --> U
-    U --> APPLY
-    APPLY -->|"Confirm"| STATE
-    APPLY -->|"Cancel: keep plan"| VIEW
-
-    U --> UNDO
-    UNDO -->|"Restore previous plan state"| STATE
-
-    STATE --> SAVE
-    U --> SAVE
-    SAVE <--> LOCAL
-    SAVE -->|"Explicit restore"| STATE
-
-    STATE --> EXPORT
-    OBS --> EXPORT
-    EXPORT --> FILE
-    FILE --> IMPORT
-    IMPORT -->|"Validated tasks and settings only"| CONFIRM
-    U --> CONFIRM
-    CONFIRM -->|"Confirm"| STATE
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    S -.-> F
+    F --> G
+    G --> H
+    H -->|"Accept: update block limit"| B
+    E -->|"End live block"| I
+    I --> J
+    J --> K
+    K -->|"Apply: update task"| B
 ```
 
 ## Boundaries
@@ -93,3 +45,24 @@ flowchart TD
 - Undo restores plan state, not elapsed time or forgotten observations.
 - The local Node.js server serves files; planning runs in the browser.
 - No planned-only components are included in this diagram.
+
+### Implementation and control boundaries
+
+- All components shown are implemented. The dashed connection supplies
+  explicitly labelled simulated observations for demonstration.
+- Ranking and adaptation use transparent rules, not a trained model
+  or external AI service.
+- Page-visibility observation is optional and off by default.
+  Hidden time does not establish distraction or concentration.
+- Rejecting an adaptation or cancelling a review leaves the current
+  plan settings or task estimates unchanged.
+- Students can override task priority and undo the latest plan change.
+  Undo does not reverse elapsed time or recover forgotten observations.
+- Observations remain temporary and can be forgotten.
+- Explicit browser saving stores tasks and settings. Restore and delete
+  are student-controlled actions.
+- JSON export supports downloading a snapshot. Import validates tasks
+  and settings, previews the replacement and requires confirmation.
+  Imported observations do not become live evidence.
+- The local Node server serves website files; the application logic runs
+  in the browser.
