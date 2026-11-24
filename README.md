@@ -1,6 +1,6 @@
-# Studyloom
+Studyloom
 
-README prose word count: 738
+README prose word count: 783
 
 An explainable study planner with a student-controlled observation and adaptation loop, built for an Intelligent Interactive Systems project.
 
@@ -54,15 +54,13 @@ Current tasks, observations and undo live in tab memory. Save plan explicitly wr
 - [Review interface](https://github.com/sxk1420/studyloom/commit/29a7cf1): explicit preview/apply/cancel, completion and undo. Thirteen temporary simulated-DOM checks passed at this stage.
 - Reproducible verification: moved interface checks into the repository with isolated state, controlled time, labelled synthetic visibility and a dependency lockfile. All 35 tests passed. Earlier temporary checks are superseded by this rerunnable suite.
 
-Recent commit links become available after those commits are pushed.
-
 - Optional local saving: added explicit save/restore/delete, saved-versus-current status, validation of stored data and cross-tab status updates. No observations, timer data or inferred decisions persist. All 49 tests passed, including simulated reloads, corrupt data and quota failure. Real-browser checks remain pending.
 
 - [Plan import](https://github.com/sxk1420/studyloom/commit/5f9f0d6): added validated JSON import with preview, explicit confirmation and Undo. Exported observations and calculated recommendations are ignored; the plan is recalculated from validated inputs. All 52 automated tests passed. The developer reported that the manual import workflow worked; this is a developer check, not an independent user study.
 
 ## AI assistance
 
-OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. Human browser review and final course alignment remain necessary. No user feedback or evaluation results have been invented.
+OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation, the report and diagram layouts. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. Human browser review and final course alignment remain necessary. No user feedback or evaluation results have been invented.
 
 ## Supporting documentation
 
@@ -83,4 +81,4 @@ OpenAI Codex helped interpret the brief and supplied lectures, propose interacti
 
 Public repository: https://github.com/sxk1420/studyloom
 
-No final submission commit is designated yet. Hosting, full real-browser verification, system diagram, illustrated interactions and the report remain unfinished. Lecture PDFs are not redistributed. No accompanying ZIP is currently needed.
+Tested website commit: 81c1720bf1a4564076df45fb5839502bc9e925ff. All 52 automated checks passed again on 24 November 2026. The system diagram and three illustrated interactions are in docs. The accompanying report includes these figures and identifies the tested commit. Comprehensive real-browser and accessibility verification remains incomplete. Public website hosting is not configured. Lecture PDFs are not redistributed. No accompanying ZIP is needed.
