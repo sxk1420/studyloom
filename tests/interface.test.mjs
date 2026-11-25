@@ -153,3 +153,122 @@ test('forget observations does not delete explicitly saved tasks',()=>{
 test('other-tab deletion updates saved status without changing current tasks',()=>{
  activate('#save-plan');dom.window.localStorage.removeItem(STORAGE_KEY);dom.window.dispatchEvent(new dom.window.StorageEvent('storage',{key:STORAGE_KEY}));assert.equal($('#restore-plan').disabled,true);assert.match(task(1).textContent,/Revise recursion/);
 });
+
+for (const paused of [false, true]) {
+ test(`undo during a ${paused ? 'paused' : 'running'} block preserves progress review`, () => {
+  activate('#start');
+  now = 12000;
+  interval();
+  if (paused) activate('#pause');
+  change('#cap', 15);
+  activate('#undo');
+  assert.equal($('#timer').textContent, '00:12');
+  activate('#finish');
+  assert.equal($('#review-block').hidden, false);
+  activate('#review-block');
+  remaining(10);
+  preview();
+  activate('#apply-review');
+  assert.match(task(1).textContent, /10 min estimated/);
+ });
+}
+
+test('undoing removal restores the original timed task for automatic review', () => {
+ change('#budget', 5);
+ activate('#start');
+ activate('[data-id="1"][data-action="remove"]');
+ activate('#undo');
+ now = 300000;
+ interval();
+ assert.equal($('#review-block').hidden, false);
+ activate('#review-block');
+ assert.match($('#review-task').textContent, /Revise recursion/);
+});
+
+test('undo cannot attach a timed task to a replacement with the same numeric ID', () => {
+ activate('#start');
+ activate('[data-demo="normal"]');
+ change('#cap', 15);
+ activate('#undo');
+ activate('#finish');
+ assert.equal($('#review-block').hidden, true);
+});
+
+test('deadline wording is consistent in cards and explanations', () => {
+ for (const [days, expected] of [[-2, '2 days overdue'], [-1, '1 day overdue'], [0, 'Due today'], [1, 'Due tomorrow'], [3, 'Due in 3 days']]) {
+  edit(1, {days});
+  assert.ok(task(1).textContent.includes(expected));
+  assert.ok($('#plan').textContent.includes(expected));
+  assert.doesNotMatch($('#plan').textContent, /Due in -|Due in 0|day\(s\)/);
+ }
+});
+
+test('import preview explains deadlines and cancel preserves current tasks', async () => {
+ const inputs = defaults();
+ inputs.tasks[0].days = -2;
+ inputs.tasks[1].days = 0;
+ inputs.tasks[2].days = 1;
+ const raw = JSON.stringify({prototype: 'Studyloom v0.1', inputs});
+ Object.defineProperty($('#import-file'), 'files', {value: [{size: raw.length, text: async () => raw}], configurable: true});
+ await $('#import-file').onchange();
+ assert.equal($('#import-dialog').open, true);
+ for (const label of ['2 days overdue', 'Due today', 'Due tomorrow']) {
+  assert.ok($('#import-preview').textContent.includes(label));
+ }
+ activate('#cancel-import');
+ assert.match(task(1).textContent, /Due tomorrow/);
+});
+
+
+test('manual block maximum updates the plan and undo restores the previous limit', () => {
+ change('#cap', 37);
+ assert.equal($('#cap').value, '37');
+ assert.equal($('.block-title span').textContent, '30 min');
+ assert.match($('#plan').textContent, /37-minute maximum/);
+ activate('#undo');
+ assert.equal($('#cap').value, '25');
+ assert.equal($('.block-title span').textContent, '25 min');
+});
+
+test('invalid manual maximum restores the last valid value', () => {
+ change('#cap', 42);
+ for (const invalid of ['', 4, 241, 12.5]) {
+  change('#cap', invalid);
+  assert.equal($('#cap').value, '42');
+  assert.match($('#status').textContent, /not applied/);
+ }
+});
+
+test('adaptation never increases a short custom maximum and undo restores a long one', () => {
+ for (const cap of [5, 10, 15]) {
+  change('#cap', cap);
+  activate('#sim-example');
+  assert.equal($('#accept'), null);
+  assert.equal($('#cap').value, String(cap));
+  assert.match($('#suggestion').textContent, /No shorter-block change/);
+ }
+ change('#cap', 42);
+ activate('#sim-example');
+ activate('#accept');
+ assert.equal($('#cap').value, '15');
+ activate('#undo');
+ assert.equal($('#cap').value, '42');
+});
+
+test('custom block maximum survives save restore and confirmed import', async () => {
+ change('#cap', 37);
+ activate('#save-plan');
+ const copy = dom.window.localStorage.getItem(STORAGE_KEY);
+ await mount(copy);
+ activate('#restore-plan');
+ assert.equal($('#cap').value, '37');
+ const inputs = {...defaults(), cap: 48};
+ const raw = JSON.stringify({prototype: 'Studyloom v0.1', inputs});
+ Object.defineProperty($('#import-file'), 'files', {value: [{size: raw.length, text: async () => raw}], configurable: true});
+ await $('#import-file').onchange();
+ assert.match($('#import-preview').textContent, /48-minute maximum/);
+ activate('#apply-import');
+ assert.equal($('#cap').value, '48');
+ activate('#undo');
+ assert.equal($('#cap').value, '37');
+});

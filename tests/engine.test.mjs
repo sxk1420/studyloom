@@ -5,7 +5,7 @@ test('explicit priority overrides score',()=>{const s=defaults();s.tasks[2].pinn
 test('completed and excluded tasks are omitted',()=>{const s=defaults();s.tasks[0].done=true;s.tasks[1].excluded=true;assert.equal(plan(s).study,20);});
 test('empty list uses no time',()=>assert.equal(plan({...defaults(),tasks:[]}).unused,60));
 test('rejects invalid inputs and duplicate IDs',()=>{for(const budget of [0,4,241,10.2,NaN])assert.throws(()=>plan({...defaults(),budget}));const s=defaults();s.tasks[1].id=1;assert.throws(()=>plan(s));});
-test('every budget and cap preserves time and allocation invariants',()=>{for(let budget=5;budget<=240;budget++)for(const cap of [15,25]){const p=plan({...defaults(),budget,cap});assert.equal(p.study+p.breaks+p.unused,budget);assert.ok(p.remaining>=0);assert.notEqual(p.blocks.at(-1)?.kind,'break');assert.ok(p.blocks.every(b=>b.minutes>=5&&b.minutes<=cap));const ids=p.blocks.filter(b=>b.kind==='task').map(b=>b.id);assert.equal(new Set(ids).size,ids.length);}});
+test('every budget and cap preserves time and allocation invariants',()=>{for(let budget=5;budget<=240;budget++)for(let cap=5;cap<=240;cap++){const p=plan({...defaults(),budget,cap});assert.equal(p.study+p.breaks+p.unused,budget);assert.ok(p.remaining>=0);assert.notEqual(p.blocks.at(-1)?.kind,'break');assert.ok(p.blocks.every(b=>b.minutes>=5&&b.minutes<=cap));const ids=p.blocks.filter(b=>b.kind==='task').map(b=>b.id);assert.equal(new Set(ids).size,ids.length);}});
 test('insufficient observation abstains even with many departures',()=>assert.equal(infer({elapsedMs:299999,switches:10,hiddenMs:120000}).suggest,false));
 test('adaptation respects exact threshold boundaries',()=>{assert.equal(infer({elapsedMs:300000,switches:3,hiddenMs:0}).suggest,true);assert.equal(infer({elapsedMs:300000,switches:2,hiddenMs:119999}).suggest,false);assert.equal(infer({elapsedMs:300000,switches:0,hiddenMs:120000}).suggest,true);});
 test('timer excludes pauses and counts page departures once',()=>{const c=createClock(0,true);visibility(c,true,1000);visibility(c,true,2000);visibility(c,false,4000);pause(c,5000);advance(c,10000);resume(c,11000);advance(c,12000);assert.deepEqual([c.elapsedMs,c.hiddenMs,c.switches,c.pauses],[6000,3000,1,1]);});
@@ -39,4 +39,11 @@ test('need-more-time review supports increased estimates and rejects invalid rev
  assert.equal(reviewTask(s,1,'more-time',60).state.tasks[0].minutes,60);
  for(const n of [0,4,241,5.5,NaN])assert.throws(()=>reviewTask(s,1,'progress',n));
  assert.throws(()=>reviewTask(s,999,'finished'));assert.throws(()=>reviewTask(s,1,'unknown',10));
+});
+
+
+test('manual maximum blocks reject fractions and out-of-range values', () => {
+ for (const cap of [0, 4, 241, 12.5, NaN, Infinity, '30', null]) {
+  assert.throws(() => plan({...defaults(), cap}), /Maximum block/);
+ }
 });

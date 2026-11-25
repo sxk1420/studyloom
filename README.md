@@ -1,6 +1,6 @@
-Studyloom
+# Studyloom
 
-README prose word count: 783
+README prose word count: 1065 (excluding setup code and URLs)
 
 An explainable study planner with a student-controlled observation and adaptation loop, built for an Intelligent Interactive Systems project.
 
@@ -37,7 +37,7 @@ npm run test:interface
 npm run test:storage
 ```
 
-Current result: **52 passing tests** (16 engine, 28 interface, 5 storage, 3 import-validation tests).
+Current result: **63 passing tests** (17 engine, 38 interface, 5 storage, 3 import-validation tests).
 The jsdom development dependency tests the real HTML and application event handlers in a simulated DOM. It does not verify CSS layout, native modal focus trapping, real keyboard input, browser background timing or actual tab visibility. See [verification instructions](docs/website-checks.md) for browser checks and test limitations.
 
 ## Technology and memory
@@ -58,9 +58,17 @@ Current tasks, observations and undo live in tab memory. Save plan explicitly wr
 
 - [Plan import](https://github.com/sxk1420/studyloom/commit/5f9f0d6): added validated JSON import with preview, explicit confirmation and Undo. Exported observations and calculated recommendations are ignored; the plan is recalculated from validated inputs. All 52 automated tests passed. The developer reported that the manual import workflow worked; this is a developer check, not an independent user study.
 
+- Review corrections (24 November, working revision): external AI feedback identified lost review access after Undo during a live block and inconsistent deadline wording. Five new checks failed before repair; all 58 pass afterwards, including a sixth guard against reviewing a replacement task with a reused ID. The correction reconnects the timer only to the original task restored by Undo. Saving is collapsible, feedback appears near actions, secondary text is enlarged, and unused time is explained. The source changes and verification notes provide the development evidence; this stage is not yet committed.
+
+- Manual maximum block (24 November, working revision): replaced the fixed 15/25-minute menu with a 5–240-minute whole-number input. Actual allocation remains bounded by each task estimate and available time. Saved plans and imports preserve custom limits. Adaptation proposes 15 minutes only when that would shorten the current maximum. Tests now cover every whole-number budget/maximum pair, invalid values, Undo, saving/restoring and import; all 63 pass.
+
+- Dashboard redesign (25 November, working revision): rebuilt the CSS with indigo, lavender, peach and mint sections; brought the planner forward, added section navigation, restyled time summaries and dialogs, and moved optional saving below the timer. All 63 interaction tests pass. The UI is awaiting visual browser verification; the report screenshots still show the previous design.
+
 ## AI assistance
 
-OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation, the report and diagram layouts. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. Human browser review and final course alignment remain necessary. No user feedback or evaluation results have been invented.
+Claude supplied review feedback; Codex checked it against the current files. Missing-report-content and 12px-label claims did not apply to the latest version. The confirmed bugs were reproduced and corrected with regression tests. No extra planned feature was invented to satisfy a suggested marking criterion.
+
+OpenAI Codex helped interpret the brief and supplied lectures, propose interactions, implement code, write tests and draft documentation, the report and diagram layouts. Checks verified planning arithmetic, validation, observation thresholds, feedback, focus restoration and review transitions. The developer exercised the planning, adaptation, review and import workflows and supplied screenshots on 23 November. That evidence covers the earlier version; native keyboard, responsive-layout and screen-reader checks remain incomplete. No user feedback or evaluation results have been invented.
 
 ## Supporting documentation
 
@@ -81,4 +89,4 @@ OpenAI Codex helped interpret the brief and supplied lectures, propose interacti
 
 Public repository: https://github.com/sxk1420/studyloom
 
-Tested website commit: 81c1720bf1a4564076df45fb5839502bc9e925ff. All 52 automated checks passed again on 24 November 2026. The system diagram and three illustrated interactions are in docs. The accompanying report includes these figures and identifies the tested commit. Comprehensive real-browser and accessibility verification remains incomplete. Public website hosting is not configured. Lecture PDFs are not redistributed. No accompanying ZIP is needed.
+Base commit: aa1e18281c88b90bddfba5af4241600f919b6341. The working revision described above passed 63 automated checks on 24 November 2026 and is awaiting a commit. Before submission, identify the final committed revision in the report and confirm it is pushed. Historical 35/49/52-test milestones above describe earlier versions, not the current count. Comprehensive browser/accessibility verification remains incomplete; the latest environment blocked the browser launch. Hosting is not configured or required to run locally. Lecture PDFs are not redistributed.

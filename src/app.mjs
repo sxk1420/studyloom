@@ -5,8 +5,28 @@ const $=s=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>"']/g,c
 let state=defaults(),previous=null,editing=null,clock=null,observation=null,decision=null,activeTask=null,result;
 let reviewTarget=null,reviewDraft=null,reviewBase=null;
 let savedSnapshot=null,savedRawExists=false,storageError='';
-const say=t=>$('#status').textContent=t;
-function checkpoint(){previous={state:structuredClone(state),decision};$('#undo').disabled=false;}
+const say = text => {
+ $('#status').textContent = text;
+ // Keep feedback near the current action without announcing it twice.
+ const local = document.activeElement?.closest('.card, .saved-plan')?.querySelector('.local-status');
+ document.querySelectorAll('.local-status').forEach(node => node.textContent = '');
+ if (local) local.textContent = text;
+};
+function deadlineLabel(days) {
+ if (days < 0) return `${-days} ${days === -1 ? 'day' : 'days'} overdue`;
+ if (days === 0) return 'Due today';
+ if (days === 1) return 'Due tomorrow';
+ return `Due in ${days} days`;
+}
+function checkpoint() {
+ previous = {
+  state: structuredClone(state),
+  decision,
+  // Map the original object into this snapshot, never just a reusable ID.
+  activeSourceIndex: active() ? state.tasks.indexOf(activeTask.sourceTask) : -1
+ };
+ $('#undo').disabled = false;
+}
 function active(){return clock&&['running','paused'].includes(clock.status);}
 function format(ms){const s=Math.floor(ms/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
 function render(){
@@ -18,9 +38,9 @@ function render(){
  const oldIds=[...document.querySelectorAll('#tasks [data-action="edit"]')].map(b=>b.dataset.id);
  const oldIndex=oldIds.indexOf(focusId);
  result=plan(state);$('#budget').value=state.budget;$('#cap').value=state.cap;$('#mode').value=state.mode;$('#count').textContent=`${state.tasks.length} TASKS`;
- $('#tasks').innerHTML=state.tasks.map(t=>`<article class="task ${t.done||t.excluded?'inactive':''}"><h3>${esc(t.title)} ${t.done?'· Complete':t.excluded?'· Left out':''}</h3><div class="task-meta"><span>${t.minutes} min estimated</span><span>${t.days<0?`${-t.days} day(s) overdue`:t.days===0?'Due today':`Due in ${t.days} day(s)`}</span><span>${['','Low','Medium','High'][t.confidence]} confidence</span></div><div class="actions"><button data-action="edit" data-id="${t.id}" aria-label="Edit ${esc(t.title)}">Edit</button><button data-action="pin" data-id="${t.id}" aria-pressed="${!!t.pinned}" ${t.done||t.excluded?'disabled':''}>${t.pinned?'★ First priority':'☆ Do first'}</button><button data-action="exclude" data-id="${t.id}" aria-pressed="${!!t.excluded}">${t.excluded?'Include':'Leave out'}</button><button data-action="done" data-id="${t.id}" aria-pressed="${!!t.done}">${t.done?'Reopen':'Mark complete'}</button><button data-action="remove" data-id="${t.id}" aria-label="Remove ${esc(t.title)}">Remove</button></div></article>`).join('')||'<p>No tasks yet. Add a task to begin.</p>';
+ $('#tasks').innerHTML=state.tasks.map(t=>`<article class="task ${t.done||t.excluded?'inactive':''}"><h3>${esc(t.title)} ${t.done?'· Complete':t.excluded?'· Left out':''}</h3><div class="task-meta"><span>${t.minutes} min estimated</span><span>${deadlineLabel(t.days)}</span><span>${['','Low','Medium','High'][t.confidence]} confidence</span></div><div class="actions"><button data-action="edit" data-id="${t.id}" aria-label="Edit ${esc(t.title)}">Edit</button><button data-action="pin" data-id="${t.id}" aria-pressed="${!!t.pinned}" ${t.done||t.excluded?'disabled':''}>${t.pinned?'★ First priority':'☆ Do first'}</button><button data-action="exclude" data-id="${t.id}" aria-pressed="${!!t.excluded}">${t.excluded?'Include':'Leave out'}</button><button data-action="done" data-id="${t.id}" aria-pressed="${!!t.done}">${t.done?'Reopen':'Mark complete'}</button><button data-action="remove" data-id="${t.id}" aria-label="Remove ${esc(t.title)}">Remove</button></div></article>`).join('')||'<p>No tasks yet. Add a task to begin.</p>';
  let number=0;
- $('#plan').innerHTML=`<div class="metrics"><div><strong>${result.study} min</strong><span>PLANNED STUDY</span></div><div><strong>${result.breaks} min</strong><span>BREAKS</span></div><div><strong>${result.unused} min</strong><span>UNALLOCATED</span></div></div>${result.remaining?`<div class="notice"><strong>${result.remaining} minutes of estimated work remain.</strong><br>This is a starting session, not a promise to finish everything.</div>`:''}${result.blocks.map(b=>b.kind==='break'?'<div class="break">5 min · Step away and reset</div>':`<div class="block"><span class="number">${++number}</span><div class="block-content"><div class="block-title">${esc(b.title)}<span>${b.minutes} min</span></div><p>${b.pinned?'First because you chose it. ':''}${b.minutes<b.estimate?`${b.minutes} of ${b.estimate} estimated minutes.`:'Your full estimate fits.'}</p><details><summary>Why this suggestion?</summary><p>Urgency ${b.urgency} × ${state.mode==='deadlines'?3:1} + support ${b.support} = ${b.score}. ${b.pinned?'Your override takes precedence.':'Higher scores come first unless overridden.'} Due in ${b.days} day(s); ${['','low','medium','high'][b.confidence]} confidence. One block per task; ${state.cap}-minute maximum.</p></details></div></div>`).join('')||'<p>No unfinished tasks are included. Add or include a task to get a plan.</p>'}<div class="remaining"><strong>After this session</strong>${result.ranked.map(t=>{const b=result.blocks.find(b=>b.kind==='task'&&b.id===t.id);const left=t.minutes-(b?.minutes||0);return left?`<p>${esc(t.title)} · ${left} min remaining${b?'':' · not scheduled'}</p>`:'';}).join('')||'<p>No estimated work remains in the included tasks.</p>'}</div>`;
+ $('#plan').innerHTML=`<div class="metrics"><div><strong>${result.study} min</strong><span>PLANNED STUDY</span></div><div><strong>${result.breaks} min</strong><span>BREAKS</span></div><div><strong>${result.unused} min</strong><span>UNUSED TIME</span></div></div>${result.unused && result.remaining ? '<p class="small">Unused time remains because each task gets one block per plan and breaks need room for another study block. Review your progress, then plan another round if needed.</p>' : ''}${result.remaining?`<div class="notice"><strong>${result.remaining} minutes of estimated work remain.</strong><br>This is a starting session, not a promise to finish everything.</div>`:''}${result.blocks.map(b=>b.kind==='break'?'<div class="break">5 min · Step away and reset</div>':`<div class="block"><span class="number">${++number}</span><div class="block-content"><div class="block-title">${esc(b.title)}<span>${b.minutes} min</span></div><p>${b.pinned?'First because you chose it. ':''}${b.minutes<b.estimate?`${b.minutes} of ${b.estimate} estimated minutes.`:'Your full estimate fits.'}</p><details><summary>Why this suggestion?</summary><p>Urgency ${b.urgency} × ${state.mode==='deadlines'?3:1} + support ${b.support} = ${b.score}. ${b.pinned?'Your override takes precedence.':'Higher scores come first unless overridden.'} ${deadlineLabel(b.days)}; ${['','low','medium','high'][b.confidence]} confidence. One block per task; ${state.cap}-minute maximum.</p></details></div></div>`).join('')||'<p>No unfinished tasks are included. Add or include a task to get a plan.</p>'}<div class="remaining"><strong>After this session</strong>${result.ranked.map(t=>{const b=result.blocks.find(b=>b.kind==='task'&&b.id===t.id);const left=t.minutes-(b?.minutes||0);return left?`<p>${esc(t.title)} · ${left} min remaining${b?'':' · not scheduled'}</p>`:'';}).join('')||'<p>No estimated work remains in the included tasks.</p>'}</div>`;
  if(!active()){$('#session-task').innerHTML=result.blocks.filter(b=>b.kind==='task').map(b=>`<option value="${b.id}">${esc(b.title)} · ${b.minutes} min</option>`).join('');if(result.blocks.some(b=>b.kind==='task'&&String(b.id)===selectedTask))$('#session-task').value=selectedTask;}
  updateControls();renderObservation();renderSavedStatus();
  if(taskFocus){
@@ -39,7 +59,21 @@ $('#add').onclick=()=>openTask();$('#cancel-task').onclick=()=>$('#task-dialog')
 $('#task-form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.target);const title=String(form.get('title')).trim();if(!title){$('#form-error').textContent='Enter a task name.';return;}checkpoint();const item={id:editing??Math.max(0,...state.tasks.map(t=>t.id))+1,title,minutes:Number(form.get('minutes')),days:Number(form.get('days')),confidence:Number(form.get('confidence'))};if(editing!==null)Object.assign(state.tasks.find(t=>t.id===editing),item);else state.tasks.push(item);render();$('#task-dialog').close();document.querySelector(`#tasks [data-id="${item.id}"][data-action="edit"]`)?.focus();say('Task saved. Your plan has updated.');};
 $('#tasks').onclick=e=>{const b=e.target.closest('[data-action]');if(!b)return;const t=state.tasks.find(t=>t.id===Number(b.dataset.id));const action=b.dataset.action;if(action==='edit'){openTask(t);return;}checkpoint();if(action==='pin'){const pinned=!t.pinned;state.tasks.forEach(t=>t.pinned=false);t.pinned=pinned;}if(action==='exclude')t.excluded=!t.excluded;if(action==='done')t.done=!t.done;if(action==='remove'){state.tasks=state.tasks.filter(x=>x.id!==t.id);if(reviewTarget===t)reviewTarget=null;}render();say(`${t.title}: ${action==='pin'?'priority updated':action==='exclude'?'inclusion updated':action==='done'?'completion updated':'removed'}. Undo is available.`);};
 for(const key of ['budget','mode','cap'])$('#'+key).onchange=e=>{if(!e.target.checkValidity()){e.target.reportValidity();e.target.value=state[key];say('That value was not applied. Choose a whole number between 5 and 240.');return;}checkpoint();state[key]=key==='mode'?e.target.value:Number(e.target.value);render();say('Plan updated. An active timer keeps its original task and duration.');};
-$('#undo').onclick=()=>{if(!previous)return;state=previous.state;decision=previous.decision;reviewTarget=null;previous=null;$('#undo').disabled=true;render();say('Previous plan restored. Live measurements are not rewound.');};
+$('#undo').onclick = () => {
+ if (!previous) return;
+ state = previous.state;
+ if (active()) {
+  activeTask.sourceTask = previous.activeSourceIndex >= 0
+   ? state.tasks[previous.activeSourceIndex]
+   : null;
+ }
+ decision = previous.decision;
+ reviewTarget = null;
+ previous = null;
+ $('#undo').disabled = true;
+ render();
+ say('Previous plan restored. Live measurements are not rewound.');
+};
 for(const b of document.querySelectorAll('[data-demo]'))b.onclick=()=>{reviewTarget=null;checkpoint();state=defaults();if(b.dataset.demo==='overload')state.budget=20;render();say('Example tasks replaced the task list. Undo restores your previous plan.');};
 $('#how').onclick=()=>$('#how-dialog').showModal();$('#close-how').onclick=()=>$('#how-dialog').close();
 function tick(){if(!clock)return;advance(clock,performance.now());$('#timer').textContent=format(clock.elapsedMs);if(clock.status==='running'&&clock.elapsedMs>=activeTask.minutes*60000){finishBlock(true);}}
@@ -50,7 +84,7 @@ $('#finish').onclick=()=>finishBlock();document.addEventListener('visibilitychan
 $('#sim-example').onclick=()=>{if(active())return;reviewTarget=null;$('#review-block').hidden=true;clock=null;observation={source:'SIMULATED EXAMPLE',task:'Example study block',elapsedMs:600000,hiddenMs:120000,switches:3,pauses:1,observing:true,at:new Date().toISOString()};decision=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='10:00';$('#timer-state').textContent='Simulated observation loaded. No live tracking is running.';renderObservation();say('Simulated example loaded: 10 minutes, 3 departures, 2 minutes hidden. Your tasks are unchanged.');$('#session-heading').scrollIntoView({behavior:'auto',block:'start'});};
 function renderObservation(){if(!observation){$('#observations').innerHTML=active()?`<p>Block in progress · observation ${clock.observing?'on':'off'}.</p><p class="small">Review appears after the block to avoid interrupting your work.</p>`:'<p>No observations stored.</p><p class="small">Session observations stay in this tab only. Reload clears this session; explicitly saved plans can be restored.</p>';$('#suggestion').innerHTML='';return;}
  const o=observation;$('#observations').innerHTML=`<p class="source">${esc(o.source)}</p><p>${esc(o.task)}</p><dl><dt>Elapsed block time</dt><dd>${format(o.elapsedMs)}</dd><dt>Page departures</dt><dd>${o.observing?o.switches:'Not observed'}</dd><dt>Time page hidden</dt><dd>${o.observing?format(o.hiddenMs):'Not observed'}</dd><dt>Manual pauses</dt><dd>${o.pauses}</dd></dl><p class="small">${esc(new Date(o.at).toLocaleString())} · Elapsed time is not measured concentration.</p>`;
- const inference=infer(o);$('#suggestion').innerHTML=`<div class="suggestion">${decision?`<strong>${esc(decision)}</strong><p>Current maximum: ${state.cap} minutes per block.</p>`:!o.observing?'<p>Observation was off. No behavioural adaptation proposed.</p>':!inference.suggest?`<p>${inference.reason}</p>`:`<strong>Would a shorter block suit you?</strong><p>${inference.reason} You may also have been reading elsewhere; we cannot tell.</p><p class="small">Rule: ${inference.threshold}</p>${state.cap===15?'<p>Your maximum is already 15 minutes. No change needed.</p>':'<div class="actions"><button id="accept" class="primary">Try 15-minute blocks</button><button id="reject">Keep my setting</button></div>'}`}</div>`;
+ const inference=infer(o);$('#suggestion').innerHTML=`<div class="suggestion">${decision?`<strong>${esc(decision)}</strong><p>Current maximum: ${state.cap} minutes per block.</p>`:!o.observing?'<p>Observation was off. No behavioural adaptation proposed.</p>':!inference.suggest?`<p>${inference.reason}</p>`:`<strong>Would a shorter block suit you?</strong><p>${inference.reason} You may also have been reading elsewhere; we cannot tell.</p><p class="small">Rule: ${inference.threshold}</p>${state.cap<=15?`<p>Your maximum is already ${state.cap} minutes. No shorter-block change is proposed.</p>`:'<div class="actions"><button id="accept" class="primary">Try 15-minute blocks</button><button id="reject">Keep my setting</button></div>'}`}</div>`;
  if($('#accept'))$('#accept').onclick=()=>{checkpoint();state.cap=15;decision='You accepted the suggestion to use 15-minute blocks.';render();say('Maximum changed to 15 minutes by you. Undo restores the previous setting.');};if($('#reject'))$('#reject').onclick=()=>{checkpoint();decision='You rejected the suggestion; it did not change your setting.';renderObservation();say('Suggestion rejected. No plan setting changed.');};
 }
 $('#clear').onclick=()=>{reviewTarget=null;clock=null;observation=null;decision=null;activeTask=null;previous=null;$('#undo').disabled=true;$('#timer').textContent='00:00';$('#timer-state').textContent='Stopped. All observations and decisions forgotten.';render();say('Observations, decision and undo history cleared. Your task list and chosen block maximum remain.');};
@@ -194,7 +228,7 @@ $('#import-file').onchange = async () => {
             <li>
               ${esc(task.title)} —
               ${task.minutes} estimated minutes;
-              due in ${task.days} day(s);
+              ${deadlineLabel(task.days)};
               ${['', 'low', 'medium', 'high'][task.confidence]} confidence
               ${task.done ? ' · complete' : ''}
               ${task.excluded ? ' · excluded' : ''}

@@ -66,3 +66,37 @@ flowchart TD
   Imported observations do not become live evidence.
 - The local Node server serves website files; the application logic runs
   in the browser.
+
+## Component architecture
+
+This companion view shows implementation boundaries; the flow above explains the student-controlled loop. All solid boxes and connections below are implemented. Only the labelled demo input supplies simulated observations. No planned-only component is claimed.
+
+```mermaid
+flowchart TB
+    SERVER["Node server · static files only"] --> UI
+    USER["Student"] -->|"Inputs and decisions"| UI
+    subgraph BROWSER["Browser · implemented"]
+        UI["HTML/CSS controls and explanations"]
+        APP["app.mjs · state and confirmation handlers"]
+        ENGINE["engine.mjs · ranking, allocation, inference, review"]
+        SIGNAL["Page Visibility API + monotonic clock"]
+        MEMORY["Temporary observations + undo snapshot"]
+        STORE["storage.mjs · validate saved plans"]
+        LOCAL[("localStorage · tasks/settings only")]
+        IMPORT["import.mjs · validate and extract inputs"]
+        UI -->|"Events"| APP
+        APP -->|"Validated inputs"| ENGINE
+        ENGINE -->|"Plan or proposal"| APP
+        APP -->|"Render feedback"| UI
+        SIGNAL -->|"Opt-in observations"| MEMORY
+        MEMORY -->|"Latest block"| ENGINE
+        APP <-->|"Explicit save/restore/delete"| STORE
+        STORE <--> LOCAL
+        IMPORT -->|"Preview then confirm"| APP
+    end
+    SIM["SIMULATED · fixed example"] -.-> MEMORY
+    FILE["Student-owned JSON file"] --> IMPORT
+    APP -->|"Explicit export; may include observations"| FILE
+```
+
+The static server does not receive task data. Import excludes exported observations, decisions and calculated plans. Saving excludes timer observations and inferred decisions. The intelligence is the deterministic ranking and uncertain adaptation rule; confirmation handlers control whether proposals change state.
