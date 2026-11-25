@@ -1,5 +1,7 @@
 # Studyloom system diagram
 
+Implementation: `e8b1227a9c239258207392e7081106e52986dcad`. The redesigned dashboard retains the student-controlled interaction architecture and supports manually specified maximum block durations.
+
 Solid connections show implemented flows. The dashed connection supplies
 explicitly simulated observations. No trained model or external AI API is used.
 
@@ -17,6 +19,8 @@ flowchart TD
     J["Preview revised plan"]
     K["Student applies or cancels"]
     S["SIMULATED: example observations"]
+    R["Retain current block limit"]
+    Q["Retain current task estimate"]
 
     A --> B
     B --> C
@@ -27,45 +31,29 @@ flowchart TD
     F --> G
     G --> H
     H -->|"Accept: update block limit"| B
+    H -->|"Reject"| R
     E -->|"End live block"| I
     I --> J
     J --> K
     K -->|"Apply: update task"| B
+    K -->|"Cancel"| Q
 ```
 
-## Boundaries
+## Implementation and control boundaries
 
-- Inference uses selected rules and thresholds, not a trained model.
-- Page visibility does not reveal which other pages or applications are used.
-- Hidden time is not proof of distraction.
-- Observations and timer activity remain in tab memory.
-- Optional browser storage contains only tasks and planning settings.
-- Export can include observations; import ignores them.
-- Preview does not change the plan until the student confirms.
-- Undo restores plan state, not elapsed time or forgotten observations.
-- The local Node.js server serves files; planning runs in the browser.
-- No planned-only components are included in this diagram.
-
-### Implementation and control boundaries
-
-- All components shown are implemented. The dashed connection supplies
-  explicitly labelled simulated observations for demonstration.
-- Ranking and adaptation use transparent rules, not a trained model
-  or external AI service.
-- Page-visibility observation is optional and off by default.
-  Hidden time does not establish distraction or concentration.
-- Rejecting an adaptation or cancelling a review leaves the current
-  plan settings or task estimates unchanged.
-- Students can override task priority and undo the latest plan change.
-  Undo does not reverse elapsed time or recover forgotten observations.
-- Observations remain temporary and can be forgotten.
-- Explicit browser saving stores tasks and settings. Restore and delete
-  are student-controlled actions.
-- JSON export supports downloading a snapshot. Import validates tasks
-  and settings, previews the replacement and requires confirmation.
-  Imported observations do not become live evidence.
-- The local Node server serves website files; the application logic runs
-  in the browser.
+- Ranking and adaptation use deterministic rules and thresholds, not a trained model or external AI service.
+- Students can specify a maximum block length of 5–240 whole minutes. Each eligible task receives at most one block, constrained by its estimate, the maximum and the remaining budget.
+- Adaptation proposes a 15-minute maximum only when the current maximum exceeds 15 minutes.
+- Page-visibility observation is optional and off by default. It cannot identify which other websites or applications are being used.
+- Hidden time does not establish distraction, concentration or learning.
+- Simulated observations are explicitly labelled and are separate from live task progress.
+- Rejecting an adaptation retains the current block limit. Cancelling a progress review retains the current task estimate.
+- Students can override task priority and undo the latest plan change. Undo restores plan state, not elapsed time or forgotten observations.
+- Timer activity and observations remain temporary and can be forgotten.
+- Explicit browser saving stores tasks and planning settings. Restoration and deletion are student-controlled.
+- JSON export can include observations. Import validates tasks and settings, previews replacement and requires confirmation. Imported observations do not become live evidence.
+- The local Node server serves static files; planning and inference run in the browser.
+- All illustrated components represent implemented functionality rather than proposed future features.
 
 ## Component architecture
 

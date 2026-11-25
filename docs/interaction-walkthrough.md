@@ -1,25 +1,34 @@
 # Studyloom interaction walkthrough
 
 These three examples document a developer walkthrough captured on
-23 November 2026. They demonstrate interface behaviour, not an
+25 November 2026. They demonstrate interface behaviour, not an
 independent user study or evidence of improved learning.
+
+> Evidence status: All ten screenshots were updated on 25 November 2026 to show the redesigned Studyloom interface implemented in `e8b1227a9c239258207392e7081106e52986dcad`. The walkthrough uses a consistent 60-minute planning budget, 25-minute maximum and Urgency + confidence preference, except where adaptation is explicitly demonstrated.
 
 ## 1. Inspect, override and undo a recommendation
 
 The student inspects why “Revise recursion” appears first.
 Studyloom exposes the urgency and confidence contributions to its
-score, along with the block-length limit.
+score, along with the block-length limit. The displayed calculation
+is urgency 5 × 1 + support 3 = 8. The task receives 25 of its
+30 estimated minutes because of the maximum-block setting.
 
 ![Expanded explanation for the recursion task](evidence/01-plan-explanation.png)
 
 The student chooses “Do first” for “Review database notes”.
 This explicit preference takes precedence over the calculated ranking.
 The plan identifies that the task is first because the student chose it.
+Database notes receive 20 minutes, recursion receives 25 minutes,
+and the report receives 5 minutes. With two 5-minute breaks,
+the full 60-minute budget is allocated.
 
 ![Database task explicitly prioritised](evidence/02-priority-override.png)
 
 The student undoes the change. The original ordering and allocation
-return: 50 study minutes, 5 break minutes and 5 unallocated minutes.
+return: 50 study minutes, 5 break minutes and 5 unused minutes.
+The interface confirms that the previous plan was restored and
+clarifies that live measurements are not rewound.
 
 ![Original plan restored after undo](evidence/03-priority-undo.png)
 
@@ -75,10 +84,12 @@ with 25 minutes of estimated work left outside the plan.
 ![Applied update showing a 10-minute task estimate](evidence/09-progress-applied.png)
 
 The student undoes the update. The task estimate returns to 30 minutes,
-while its scheduled block returns to 25 minutes because of the
-maximum-block setting.
+and the original planning totals return to 50 study minutes,
+5 break minutes and 5 unused minutes. The restored estimate and
+undo confirmation are visible in the screenshot. The full original
+allocation is shown in the first storyboard.
 
-![Undo restores the 30-minute estimate and 25-minute block](evidence/10-progress-undo.png)
+![Undo restores the 30-minute estimate and original planning totals](evidence/10-progress-undo.png)
 
 The changed estimate is a demonstration input supplied by the student.
 It is not a measurement of work completed or learning gained.
